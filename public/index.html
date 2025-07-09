@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการรายการหนังสือ</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        
+        <div id="messageBox" class="message-box"></div>
+
+        
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl mb-6 text-indigo-700">เพิ่ม/แก้ไขข้อมูลหนังสือ</h2>
+            <form id="bookForm">
+                <input type="hidden" id="bookId">
+
+                <div class="mb-4">
+                    <label for="title">ชื่อหนังสือ:</label>
+                    <input type="text" id="title" placeholder="ชื่อหนังสือ" required class="rounded-lg">
+                </div>
+
+                <div class="mb-4">
+                    <label for="author">ผู้แต่ง:</label>
+                    <input type="text" id="author" placeholder="ผู้แต่ง" required class="rounded-lg">
+                </div>
+
+                <div class="mb-4">
+                    <label for="published_year">ปีที่พิมพ์:</label>
+                    <input type="number" id="published_year" placeholder="ปีที่พิมพ์" class="rounded-lg">
+                </div>
+
+                <div class="mb-6">
+                    <label for="genre">ประเภท:</label>
+                    <input type="text" id="genre" placeholder="ประเภท (เช่น นิยาย, วิทยาศาสตร์)" class="rounded-lg">
+                </div>
+
+                <div class="flex space-x-3">
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 focus:ring-offset-2
+                                               px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95 text-white">
+                        บันทึกหนังสือ
+                    </button>
+                    <button type="button" id="cancelEditBtn" class="btn-secondary hidden">ยกเลิก</button>
+                </div>
+            </form>
+        </div>
+
+        
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl mb-6 text-indigo-700">รายการหนังสือทั้งหมด</h2>
+
+            
+            <div class="mb-6 flex items-center space-x-3">
+                <input type="text" id="searchQuery" placeholder="ค้นหาด้วยชื่อ, ผู้แต่ง, หรือประเภท" class="flex-grow rounded-lg">
+                <button id="searchBtn" class="bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 focus:ring-offset-2 px-4 py-2 text-white">ค้นหา</button>
+                <button id="clearSearchBtn" class="btn-secondary px-4 py-2 text-white">ล้าง</button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table id="bookTable" class="min-w-full bg-white rounded-lg shadow-sm">
+                    <thead>
+                        <tr>
+                            
+                            <th data-sort-by="id" class="cursor-pointer">ID <span id="sort-icon-id"></span></th>
+                            <th data-sort-by="title" class="cursor-pointer">ชื่อหนังสือ <span id="sort-icon-title"></span></th>
+                            <th data-sort-by="author" class="cursor-pointer">ผู้แต่ง <span id="sort-icon-author"></span></th>
+                            <th data-sort-by="published_year" class="cursor-pointer">ปีที่พิมพ์ <span id="sort-icon-published_year"></span></th>
+                            <th data-sort-by="genre" class="cursor-pointer">ประเภท <span id="sort-icon-genre"></span></th>
+                            <th data-sort-by="created_at" class="cursor-pointer">วันที่สร้าง <span id="sort-icon-created_at"></span></th>
+                            <th data-sort-by="updated_at" class="cursor-pointer">วันที่แก้ไข <span id="sort-icon-updated_at"></span></th>
+                            <th>การดำเนินการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/books'; // URL ของ API ที่เราสร้างไว้
+
+        const bookForm = document.getElementById('bookForm');
+        const bookIdInput = document.getElementById('bookId');
+        const titleInput = document.getElementById('title');
+        const authorInput = document.getElementById('author');
+        const publishedYearInput = document.getElementById('published_year');
+        const genreInput = document.getElementById('genre');
+        const bookTableBody = document.querySelector('#bookTable tbody');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const messageBox = document.getElementById('messageBox');
+        const tableHeaders = document.querySelectorAll('#bookTable th[data-sort-by]'); // เลือกหัวตารางที่เรียงได้
+
+        // สำหรับฟังก์ชันค้นหา
+        const searchQueryInput = document.getElementById('searchQuery');
+        const searchBtn = document.getElementById('searchBtn');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+
+        let currentSortColumn = 'created_at'; // คอลัมน์เริ่มต้นในการเรียง
+        let currentSortOrder = 'desc';       // ลำดับเริ่มต้น (descending)
+        let allBooksData = [];               // เก็บข้อมูลหนังสือทั้งหมดที่ดึงมา (ก่อนการค้นหา)
+        let filteredBooksData = [];          // เก็บข้อมูลหนังสือที่ถูกกรองหลังการค้นหา
+
+        // ฟังก์ชันสำหรับแสดงข้อความแจ้งเตือน
+        function showMessage(message, type = 'success') {
+            messageBox.textContent = message;
+            messageBox.className = 'message-box'; // Reset classes
+            if (type === 'error') {
+                messageBox.classList.add('error');
+            }
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 3000); // ซ่อนหลังจาก 3 วินาที
+        }
+
+        // ฟังก์ชันสำหรับดึงข้อมูลหนังสือทั้งหมดจาก API และจัดการการค้นหา
+        async function fetchBooks(searchTerm = '') {
+            try {
+                let url = API_URL;
+                if (searchTerm) {
+                    url += `?search=${encodeURIComponent(searchTerm)}`;
+                }
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                allBooksData = await response.json(); // เก็บข้อมูลดิบที่ได้จาก API
+                filteredBooksData = [...allBooksData]; // เริ่มต้น filtered data ด้วยข้อมูลทั้งหมด
+                sortAndRenderBooks(); // เรียงและแสดงผลข้อมูลที่กรองแล้ว
+            } catch (error) {
+                console.error('Error fetching books:', error);
+                showMessage('เกิดข้อผิดพลาดในการดึงข้อมูลหนังสือ', 'error');
+            }
+        }
+
+        // ฟังก์ชันสำหรับเรียงข้อมูลและแสดงผลในตาราง
+        function sortAndRenderBooks() {
+            // สร้างสำเนาของข้อมูลที่ถูกกรองแล้วเพื่อไม่ให้กระทบกับข้อมูลต้นฉบับ
+            const sortedBooks = [...filteredBooksData].sort((a, b) => {
+                let valA = a[currentSortColumn];
+                let valB = b[currentSortColumn];
+
+                // จัดการค่า null/undefined สำหรับการเรียงลำดับ
+                if (valA === null || valA === undefined) valA = '';
+                if (valB === null || valB === undefined) valB = '';
+
+                // แปลงเป็นตัวเลขสำหรับการเรียงลำดับตัวเลข
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    return currentSortOrder === 'asc' ? valA - valB : valB - valA;
+                }
+                // แปลงเป็น Date object สำหรับการเรียงลำดับวันที่
+                if (currentSortColumn === 'created_at' || currentSortColumn === 'updated_at') {
+                    valA = new Date(valA);
+                    valB = new Date(valB);
+                }
+
+                // เรียงลำดับแบบ string หรือ Date
+                if (valA < valB) {
+                    return currentSortOrder === 'asc' ? -1 : 1;
+                }
+                if (valA > valB) {
+                    return currentSortOrder === 'asc' ? 1 : -1;
+                }
+                return 0; // เท่ากัน
+            });
+            renderBooks(sortedBooks);
+            updateSortIcons(); // อัปเดตไอคอนการเรียงลำดับ
+        }
+
+        // ฟังก์ชันสำหรับแสดงผลข้อมูลหนังสือในตาราง
+        function renderBooks(books) {
+            bookTableBody.innerHTML = ''; // ล้างข้อมูลเก่า
+            if (books.length === 0) {
+                bookTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-gray-500">ไม่พบข้อมูลหนังสือ</td></tr>';
+                return;
+            }
+
+            books.forEach(book => {
+                const row = bookTableBody.insertRow();
+                row.innerHTML = `
+                    <td>${book.id}</td>
+                    <td>${book.title}</td>
+                    <td>${book.author}</td>
+                    <td>${book.published_year || '-'}</td>
+                    <td>${book.genre || '-'}</td>
+                    <td>${new Date(book.created_at).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                    <td>${new Date(book.updated_at).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                    <td class="actions">
+                        <button onclick="editBook(${book.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md">แก้ไข</button>
+                        <button onclick="deleteBook(${book.id})" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md">ลบ</button>
+                    </td>
+                `;
+            });
+        }
+
+        // ฟังก์ชันสำหรับอัปเดตไอคอนการเรียงลำดับ
+        function updateSortIcons() {
+            tableHeaders.forEach(header => {
+                const sortIcon = header.querySelector('span');
+                const column = header.dataset.sortBy;
+                if (sortIcon) {
+                    sortIcon.innerHTML = ''; // ล้างไอคอนเดิม
+                    if (column === currentSortColumn) {
+                        sortIcon.innerHTML = currentSortOrder === 'asc' ? ' &#9650;' : ' &#9660;'; // ลูกศรขึ้น/ลง
+                    }
+                }
+            });
+        }
+
+        // เพิ่ม Event Listener สำหรับหัวตารางที่เรียงได้
+        tableHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                const column = header.dataset.sortBy;
+                if (column === currentSortColumn) {
+                    // ถ้าคลิกคอลัมน์เดิม ให้เปลี่ยนลำดับการเรียง
+                    currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+                } else {
+                    // ถ้าคลิกคอลัมน์ใหม่ ให้เรียงแบบ ascending เป็นค่าเริ่มต้น
+                    currentSortColumn = column;
+                    currentSortOrder = 'asc';
+                }
+                sortAndRenderBooks(); // เรียงและแสดงผลข้อมูลใหม่
+            });
+        });
+
+        // Event Listener สำหรับปุ่มค้นหา
+        searchBtn.addEventListener('click', () => {
+            const searchTerm = searchQueryInput.value.trim();
+            fetchBooks(searchTerm);
+        });
+
+        // Event Listener สำหรับปุ่มล้างการค้นหา
+        clearSearchBtn.addEventListener('click', () => {
+            searchQueryInput.value = ''; // ล้างช่องค้นหา
+            fetchBooks(''); // ดึงข้อมูลทั้งหมดโดยไม่มีคำค้นหา
+        });
+
+        // ฟังก์ชันสำหรับส่งข้อมูลฟอร์ม (เพิ่ม/แก้ไข)
+        bookForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const id = bookIdInput.value;
+            const bookData = {
+                title: titleInput.value.trim(),
+                author: authorInput.value.trim(),
+                published_year: publishedYearInput.value ? parseInt(publishedYearInput.value) : null,
+                genre: genreInput.value.trim() || null
+            };
+
+            if (!bookData.title || !bookData.author) {
+                showMessage('กรุณากรอกชื่อหนังสือและผู้แต่ง', 'error');
+                return;
+            }
+
+            try {
+                let response;
+                if (id) {
+                    // แก้ไขหนังสือ
+                    response = await fetch(`${API_URL}/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(bookData)
+                    });
+                    if (response.ok) {
+                        showMessage('แก้ไขข้อมูลหนังสือสำเร็จ!');
+                    } else {
+                        throw new Error('Failed to update book');
+                    }
+                } else {
+                    // เพิ่มหนังสือใหม่
+                    response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(bookData)
+                    });
+                    if (response.ok) {
+                        showMessage('เพิ่มหนังสือใหม่สำเร็จ!');
+                    } else {
+                        throw new Error('Failed to add book');
+                    }
+                }
+                bookForm.reset(); // ล้างฟอร์ม
+                bookIdInput.value = ''; // ล้าง ID ที่ซ่อนไว้
+                cancelEditBtn.classList.add('hidden'); // ซ่อนปุ่มยกเลิก
+                fetchBooks(searchQueryInput.value.trim()); // โหลดข้อมูลใหม่พร้อมคำค้นหาปัจจุบัน
+            } catch (error) {
+                console.error('Error saving book:', error);
+                showMessage('เกิดข้อผิดพลาดในการบันทึกหนังสือ', 'error');
+            }
+        });
+
+        // ฟังก์ชันสำหรับโหลดข้อมูลหนังสือเพื่อแก้ไข
+        async function editBook(id) {
+            try {
+                const response = await fetch(`${API_URL}/${id}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const book = await response.json();
+                bookIdInput.value = book.id;
+                titleInput.value = book.title;
+                authorInput.value = book.author;
+                publishedYearInput.value = book.published_year;
+                genreInput.value = book.genre;
+                cancelEditBtn.classList.remove('hidden'); // แสดงปุ่มยกเลิก
+                window.scrollTo({ top: 0, behavior: 'smooth' }); // เลื่อนขึ้นไปที่ฟอร์ม
+            } catch (error) {
+                console.error('Error fetching book for edit:', error);
+                showMessage('เกิดข้อผิดพลาดในการโหลดข้อมูลเพื่อแก้ไข', 'error');
+            }
+        }
+
+        // ฟังก์ชันสำหรับยกเลิกการแก้ไข
+        cancelEditBtn.addEventListener('click', () => {
+            bookForm.reset();
+            bookIdInput.value = '';
+            cancelEditBtn.classList.add('hidden');
+        });
+
+        // ฟังก์ชันสำหรับลบหนังสือ
+        async function deleteBook(id) {
+            // แทนที่ confirm() ด้วย Modal UI ในโปรเจกต์จริง
+            if (!confirm('คุณแน่ใจหรือไม่ที่จะลบหนังสือเล่มนี้?')) {
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                showMessage('ลบหนังสือสำเร็จ!');
+                fetchBooks(searchQueryInput.value.trim()); // โหลดข้อมูลใหม่พร้อมคำค้นหาปัจจุบัน
+            } catch (error) {
+                console.error('Error deleting book:', error);
+                showMessage('เกิดข้อผิดพลาดในการลบหนังสือ', 'error');
+            }
+        }
+
+        // โหลดข้อมูลหนังสือเมื่อหน้าเว็บโหลดเสร็จ
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchBooks();
+            updateSortIcons(); // แสดงไอคอนเริ่มต้น
+        });
+    </script>
+</body>
+</html>

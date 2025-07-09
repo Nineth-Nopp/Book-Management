@@ -1,0 +1,144 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f0f2f5;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+}
+.container {
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+    width: 100%;
+    max-width: 1200px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 30px;
+}
+@media (min-width: 768px) {
+    .container {
+        grid-template-columns: 1fr 2fr;
+    }
+}
+h1, h2 {
+    color: #333;
+    font-weight: 700;
+}
+label {
+    display: block;
+    margin-bottom: 8px;
+    color: #555;
+    font-weight: 500;
+}
+input[type="text"],
+input[type="number"] {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 16px;
+    transition: border-color 0.2s;
+}
+input[type="text"]:focus,
+input[type="number"]:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+button {
+    background-color: #4f46e5;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: background-color 0.2s, transform 0.1s;
+}
+button:hover {
+    background-color: #4338ca;
+    transform: translateY(-1px);
+}
+button:active {
+    transform: translateY(0);
+}
+.btn-secondary {
+    background-color: #6b7280;
+}
+.btn-secondary:hover {
+    background-color: #4b5563;
+}
+.btn-danger {
+    background-color: #dc2626;
+}
+.btn-danger:hover {
+    background-color: #b91c1c;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+th, td {
+    border: 1px solid #e5e7eb;
+    padding: 12px 15px;
+    text-align: left;
+}
+th {
+    background-color: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+}
+tr:nth-child(even) {
+    background-color: #f9fafb;
+}
+tr:hover {
+    background-color: #eff6ff;
+}
+
+.actions {
+    display: flex; 
+    gap: 8px;      
+}
+.actions button {
+    
+    width: 60px;   
+    height: 32px;  
+    display: flex; 
+    justify-content: center; 
+    align-items: center;     
+    padding: 0; 
+    font-size: 14px;
+    border-radius: 6px;
+}
+.message-box {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #4CAF50;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    display: none; 
+    animation: fadein 0.5s, fadeout 0.5s 2.5s;
+}
+.message-box.error {
+    background-color: #f44336;
+}
+@keyframes fadein {
+    from {top: 0; opacity: 0;}
+    to {top: 20px; opacity: 1;}
+}
+@keyframes fadeout {
+    from {top: 20px; opacity: 1;}
+    to {top: 0; opacity: 0;}
+}
